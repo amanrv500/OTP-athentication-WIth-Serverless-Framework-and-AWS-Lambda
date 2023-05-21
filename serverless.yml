@@ -1,0 +1,118 @@
+service: newServerlessProject
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: python3.9
+  region: ap-south-1
+  stage: dev
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - logs:CreateLogGroup
+        - logs:CreateLogStream
+        - logs:PutLogEvents
+      Resource: arn:aws:logs:*:*:*
+    - Effect: Allow
+      Action:
+        - cognito-identity:*
+        - cognito-idp:*
+        - cognito-sync:*
+        - iam:ListRoles
+        - iam:ListOpenIdConnectProviders
+        - sns:ListPlatformApplications
+      Resource: "*"
+    - Effect: Allow
+      Action:
+        - sns:*
+      Resource: "*"
+
+
+
+
+functions:
+  preSignUp:
+    handler: functions/pre-signup.lambda_handler
+    events:
+      - cognitoUserPool:
+          pool: myuserpool
+          trigger: PreSignUp
+
+  defineAuthChallenge:
+    handler: functions/define-auth-challenge.lambda_handler
+    events:
+      - cognitoUserPool:
+          pool: myuserpool
+          trigger: DefineAuthChallenge
+
+  createAuthChallenge:
+    handler: functions/create-auth-challenge.lambda_handler
+    events:
+      - cognitoUserPool:
+          pool: myuserpool
+          trigger: CreateAuthChallenge
+      - sns:
+          arn: 
+            Ref: MySnsTopic
+          topicName: MySnsTopic
+
+  verifyAuthChallengeResponse:
+    handler: functions/verify-auth-challenge-response.lambda_handler
+    events:
+      - cognitoUserPool:
+          pool: myuserpool
+          trigger: VerifyAuthChallengeResponse
+
+
+resources:
+  Resources:
+    CognitoUserPool:
+      Type: AWS::Cognito::UserPool
+      Properties:
+        UserPoolName: myuserpool
+        UsernameAttributes:
+          - phone_number
+        UsernameConfiguration:
+          CaseSensitive: False
+        MfaConfiguration: OFF
+        Policies:
+          PasswordPolicy:
+            MinimumLength: 8
+            RequireLowercase: False
+            RequireNumbers: False
+            RequireSymbols: False
+            RequireUppercase: False
+        Schema:
+          - AttributeDataType: String
+            Name: name
+            Required: true
+          - AttributeDataType: String
+            Name: family_name
+            Required: true
+          - AttributeDataType: String
+            Name: email
+            Required: true
+          - AttributeDataType: String
+            Name: phone_number
+            Required: true
+
+    CognitoUserPoolClient:
+      Type: AWS::Cognito::UserPoolClient
+      Properties:
+        ClientName: newuserpoolclient
+        GenerateSecret: true
+        UserPoolId: ap-south-1_JGT0cPObT
+        ExplicitAuthFlows:
+          - ALLOW_CUSTOM_AUTH
+          - ALLOW_USER_SRP_AUTH
+          - ALLOW_REFRESH_TOKEN_AUTH
+  
+
+    MySnsTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        Subscription:
+          - Endpoint: +919000000000
+            Protocol: sms
+        TopicName: MySnsTopic
